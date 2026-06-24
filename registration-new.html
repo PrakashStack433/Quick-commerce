@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuickBite — Sign Up</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #0F0D0B; --surface: #1A1714; --card: #231F1B; --border: #2E2A26;
+      --orange: #1dc917; --orange-soft: #FF8F5A; --cream: #F5EDD8; --cream-muted: #B8A99A;
+      --green: #22C55E; --red: #EF4444; --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
+    }
+    body {
+      background: var(--bg); color: var(--cream); font-family: var(--font-body);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .register-container {
+      width: 100%; max-width: 400px; background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 2.5rem;
+    }
+    .register-title {
+      font-size: 1.8rem; font-weight: 700; font-family: var(--font-head); margin-bottom: 0.5rem; color: var(--cream);
+    }
+    .register-subtitle { color: var(--cream-muted); font-size: 0.9rem; margin-bottom: 2rem; }
+    .form-group { margin-bottom: 1.5rem; }
+    label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--cream); font-size: 0.95rem; }
+    input {
+      width: 100%; padding: 0.75rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--cream); font-family: var(--font-body); font-size: 1rem; transition: border-color 0.3s;
+    }
+    input:focus { outline: none; border-color: var(--orange); }
+    small { color: var(--cream-muted); font-size: 0.8rem; margin-top: 0.25rem; display: block; }
+    .password-requirements { font-size: 0.8rem; color: var(--cream-muted); margin-top: 0.5rem; line-height: 1.4; }
+    .requirement { margin: 0.25rem 0; }
+    .requirement.valid { color: var(--green); }
+    .requirement.invalid { color: var(--red); }
+    button {
+      width: 100%; padding: 0.75rem; background: var(--orange); border: none;
+      border-radius: 8px; color: #000; font-weight: 600; font-size: 1rem; cursor: pointer;
+      transition: opacity 0.3s; font-family: var(--font-body);
+    }
+    button:hover:not(:disabled) { opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .message {
+      margin-top: 1rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; display: none;
+    }
+    .message.error { background: rgba(239, 68, 68, 0.1); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .message.success { background: rgba(34, 197, 94, 0.1); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .message.show { display: block; }
+    .loader { display: none; width: 20px; height: 20px; border: 3px solid var(--cream-muted);
+      border-top-color: var(--orange); border-radius: 50%; animation: spin 0.6s linear infinite; margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .auth-links { margin-top: 1.5rem; text-align: center; color: var(--cream-muted); font-size: 0.9rem; }
+    .auth-links a { color: var(--orange); text-decoration: none; font-weight: 500; }
+    .auth-links a:hover { text-decoration: underline; }
+    .otp-center { text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="register-container">
+    <h1 class="register-title">QuickBite</h1>
+    <p class="register-subtitle">Create your account</p>
+
+    <!-- Registration Form -->
+    <form id="registerForm" style="display: block;">
+      <div class="form-group">
+        <label for="mobile">Mobile Number</label>
+        <input type="tel" id="mobile" placeholder="98XXXXXXXX" maxlength="10" pattern="[0-9]{10}" required>
+        <small>Enter your 10-digit mobile number</small>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Create a strong password" required>
+        <div class="password-requirements">
+          <div class="requirement invalid" id="req-length">✓ At least 8 characters</div>
+          <div class="requirement invalid" id="req-upper">✓ One uppercase letter</div>
+          <div class="requirement invalid" id="req-lower">✓ One lowercase letter</div>
+          <div class="requirement invalid" id="req-number">✓ One number</div>
+          <div class="requirement invalid" id="req-special">✓ One special character (@$!%*?&)</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" placeholder="Re-enter your password" required>
+      </div>
+
+      <div class="message" id="message"></div>
+      <div class="loader" id="loader"></div>
+      <button type="submit" id="submitBtn">Sign Up</button>
+    </form>
+
+    <!-- OTP Verification Form -->
+    <form id="otpForm" style="display: none;">
+      <div class="form-group otp-center" style="margin-bottom: 1.5rem;">
+        <label style="display: block;">Verification Code</label>
+        <p style="color: var(--cream); margin-top: 0.5rem;">Sent to <strong id="displayMobile"></strong></p>
+      </div>
+
+      <div class="form-group">
+        <label for="otpInput">Enter OTP</label>
+        <input type="text" id="otpInput" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required>
+        <small style="text-align: center;">Valid for 10 minutes</small>
+      </div>
+
+      <div class="otp-center" style="margin: 1rem 0; color: var(--cream-muted); font-size: 0.9rem;">
+        <span id="otpTimer"></span>
+        <button type="button" id="resendOtpBtn" style="background: none; border: none; color: var(--orange); cursor: pointer; text-decoration: underline; margin-left: 0.5rem; display: none;">Resend</button>
+      </div>
+
+      <div class="message" id="otpMessage"></div>
+      <div class="loader" id="otpLoader"></div>
+      <button type="submit" id="verifyOtpBtn">Verify & Sign Up</button>
+    </form>
+
+    <div class="auth-links">
+      <p>Already have an account? <a href="login-new.html">Login here</a></p>
+    </div>
+  </div>
+
+  <script>
+    const registerForm = document.getElementById('registerForm');
+    const otpForm = document.getElementById('otpForm');
+    const mobileInput = document.getElementById('mobile');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirmPassword');
+    const otpInput = document.getElementById('otpInput');
+    const messageDiv = document.getElementById('message');
+    const otpMessageDiv = document.getElementById('otpMessage');
+    const loader = document.getElementById('loader');
+    const otpLoader = document.getElementById('otpLoader');
+    const submitBtn = document.getElementById('submitBtn');
+    const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+    const resendOtpBtn = document.getElementById('resendOtpBtn');
+    const otpTimer = document.getElementById('otpTimer');
+    const displayMobile = document.getElementById('displayMobile');
+    
+    let otpTimeLeft = 0;
+    let otpTimerInterval = null;
+
+    function isValidMobileNumber(mobile) {
+      return /^[6-9]\d{9}$/.test(mobile);
+    }
+
+    function validatePassword(password) {
+      const requirements = {
+        length: password.length >= 8,
+        upper: /[A-Z]/.test(password),
+        lower: /[a-z]/.test(password),
+        number: /\d/.test(password),
+        special: /[@$!%*?&]/.test(password)
+      };
+      ['length', 'upper', 'lower', 'number', 'special'].forEach((key, idx) => {
+        updateRequirement(`req-${['length', 'upper', 'lower', 'number', 'special'][idx]}`, requirements[key]);
+      });
+      return Object.values(requirements).every(v => v);
+    }
+
+    function updateRequirement(id, isValid) {
+      const element = document.getElementById(id);
+      element.classList.toggle('valid', isValid);
+      element.classList.toggle('invalid', !isValid);
+    }
+
+    function showMessage(text, type) {
+      messageDiv.textContent = text;
+      messageDiv.className = `message ${type} show`;
+      setTimeout(() => messageDiv.classList.remove('show'), 4000);
+    }
+
+    function showOtpMessage(text, type) {
+      otpMessageDiv.textContent = text;
+      otpMessageDiv.className = `message ${type} show`;
+      setTimeout(() => otpMessageDiv.classList.remove('show'), 4000);
+    }
+
+    function startOtpTimer() {
+      otpTimeLeft = 600;
+      resendOtpBtn.style.display = 'none';
+      clearInterval(otpTimerInterval);
+      otpTimerInterval = setInterval(() => {
+        otpTimeLeft--;
+        const mins = Math.floor(otpTimeLeft / 60);
+        const secs = otpTimeLeft % 60;
+        otpTimer.textContent = `Resend OTP in ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if (otpTimeLeft <= 0) {
+          clearInterval(otpTimerInterval);
+          otpTimer.textContent = '';
+          resendOtpBtn.style.display = 'inline';
+        }
+      }, 1000);
+    }
+
+    function showOtpScreen(mobile) {
+      displayMobile.textContent = `${mobile.substring(0, 2)}${'*'.repeat(6)}${mobile.substring(8)}`;
+      registerForm.style.display = 'none';
+      otpForm.style.display = 'block';
+      otpInput.focus();
+      startOtpTimer();
+    }
+
+    passwordInput.addEventListener('input', () => validatePassword(passwordInput.value));
+
+    registerForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const mobile = mobileInput.value.trim();
+      const password = passwordInput.value;
+      const confirmPassword = confirmPasswordInput.value;
+
+      if (!mobile || !password || !confirmPassword) {
+        showMessage('All fields required', 'error');
+        return;
+      }
+      if (!isValidMobileNumber(mobile)) {
+        showMessage('Invalid mobile number', 'error');
+        return;
+      }
+      if (password !== confirmPassword) {
+        showMessage('Passwords do not match', 'error');
+        return;
+      }
+      if (!validatePassword(password)) {
+        showMessage('Password does not meet requirements', 'error');
+        return;
+      }
+
+      loader.style.display = 'block';
+      submitBtn.disabled = true;
+
+      try {
+        const response = await fetch('http://localhost:3000/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ mobile, password, confirmPassword })
+        });
+        const data = await response.json();
+        if (response.ok && data.step === 'otp_verification') {
+          showOtpScreen(mobile);
+        } else {
+          showMessage(data.error || 'Registration failed', 'error');
+        }
+      } catch (error) {
+        showMessage('Connection error', 'error');
+      } finally {
+        loader.style.display = 'none';
+        submitBtn.disabled = false;
+      }
+    });
+
+    otpForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const otp = otpInput.value.trim();
+      
+      if (!otp || otp.length !== 6) {
+        showOtpMessage('Enter 6-digit OTP', 'error');
+        return;
+      }
+
+      otpLoader.style.display = 'block';
+      verifyOtpBtn.disabled = true;
+
+      try {
+        const response = await fetch('http://localhost:3000/api/verify-registration-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ otp })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          showOtpMessage('✓ Registration successful!', 'success');
+          clearInterval(otpTimerInterval);
+          setTimeout(() => window.location.href = 'login-new.html', 2000);
+        } else {
+          showOtpMessage(data.error || 'OTP verification failed', 'error');
+        }
+      } catch (error) {
+        showOtpMessage('Connection error', 'error');
+      } finally {
+        otpLoader.style.display = 'none';
+        verifyOtpBtn.disabled = false;
+      }
+    });
+
+    resendOtpBtn.addEventListener('click', async (event) => {
+      event.preventDefault();
+      try {
+        const response = await fetch('http://localhost:3000/api/resend-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ type: 'registration' })
+        });
+        const data = await response.json();
+        if (response.ok) {
+          showOtpMessage('✓ OTP resent', 'success');
+          startOtpTimer();
+          otpInput.value = '';
+          otpInput.focus();
+        } else {
+          showOtpMessage(data.error || 'Failed to resend OTP', 'error');
+        }
+      } catch (error) {
+        showOtpMessage('Connection error', 'error');
+      }
+    });
+  </script>
+</body>
+</html>
