@@ -36,6 +36,9 @@ app.use(session({
 // ⚠️ For production, use a real database (MongoDB, PostgreSQL, etc)
 const users = new Map();
 
+// ── IN-MEMORY ORDERS DATABASE ──────────────────────────────
+const orders = [];
+
 // Sample user for testing (phone: 9876543210, password: Test@123)
 users.set('9876543210', {
     id: 1,
@@ -381,6 +384,63 @@ app.post('/api/verify-otp', (req, res) => {
     }
     req.session.otpVerified = true;
     res.json({ success: true, message: 'OTP verified' });
+});
+
+// 7. PLACE AN ORDER
+app.post('/api/orders', (req, res) => {
+    // Ensure the user is logged in before placing an order
+    if (!req.session.userId) {
+        return res.status(401).json({ error: 'Unauthorized. Please log in first.' });
+    }
+
+    const { address, items, total } = req.body;
+
+    if (!address || !items || !total) {
+        return res.status(400).json({ error: 'Missing order details.' });
+    }
+
+    // Create a new order object
+    const newOrder = {
+        id: 'QB-' + Math.floor(1000 + Math.random() * 9000),
+        userId: req.session.userId,
+        userMobile: req.session.mobile,
+        address,
+        items,
+        total,
+        status: 'new', // status can be: new, pickup, enroute, done
+        createdAt: new Date()
+    };
+
+    // Store it on the server
+    orders.unshift(newOrder);
+
+    console.log(`\n📦 NEW ORDER RECEIVED:`);
+    console.log(`🆔 ID: #${newOrder.id}`);
+    console.log(`📱 Customer Mobile: ${newOrder.userMobile}`);
+    console.log(`📍 Address: ${newOrder.address}`);
+    console.log(`💳 Total: ₹${newOrder.total}\n`);
+
+    res.json({ success: true, order: newOrder });
+});
+
+// 8. GET ALL ORDERS (For Rider/Delivery Dashboard)
+app.get('/api/orders', (req, res) => {
+    // Optional check: You could verify if (req.session.role === 'rider') here
+    res.json({ success: true, orders });
+});
+
+// 9. UPDATE ORDER STATUS (For the Rider actions)
+app.post('/api/orders/update-status', (req, res) => {
+    const { id, nextStatus } = req.body;
+    
+    const order = orders.find(o => o.id === id);
+    if (!order) {
+        return res.status(404).json({ error: 'Order not found' });
+    }
+
+    order.status = nextStatus;
+    console.log(`📦 Order #${id} status updated to: ${nextStatus}`);
+    res.json({ success: true, order });
 });
 
 // ── START SERVER ────────────────────────────────────────────

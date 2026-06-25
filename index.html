@@ -140,7 +140,7 @@
       width: 18px;
       height: 18px;
       display: flex;
-      align-items: center;
+      align-items: Top center;
       justify-content: center;
       font-size: 11px;
       font-weight: 700
@@ -1072,7 +1072,7 @@
       <div class="section-label">Delivery Address</div>
       <input class="addr-input" id="addr-input" placeholder="Enter full delivery address..." />
       <div class="order-row"><span>Subtotal</span><span id="subtotal">₹0</span></div>
-      <div class="order-row"><span>Delivery fee</span><span>₹25</span></div>
+      <div class="order-row"><span>Delivery fee</span><span>₹20</span></div>
       <div class="order-row"><span>Platform fee</span><span>₹5</span></div>
       <div class="order-row total"><span>Total</span><span id="total">₹30</span></div>
       <button class="checkout-btn" onclick="placeOrder()">Place Order →</button>
@@ -1319,16 +1319,50 @@
       panel.style.display = 'block';
     }
 
-    function placeOrder() {
+    async function placeOrder() {
       const addr = document.getElementById('addr-input').value.trim();
-      if (!addr) { document.getElementById('addr-input').focus(); showToast('Please enter delivery address!'); return; }
-      const orderId = 'QB-' + Math.floor(1000 + Math.random() * 9000);
-      document.getElementById('track-id').textContent = '#' + orderId;
+      if (!addr) { 
+        document.getElementById('addr-input').focus(); 
+        showToast('Please enter delivery address!'); 
+        return; 
+      }
+      
       const ids = Object.keys(cart).filter(id => cart[id] > 0);
-      const itemsList = ids.map(id => { const f = FOODS.find(x => x.id == id); return `${f.emoji} ${f.name} ×${cart[id]}`; }).join(', ');
-      const sub = ids.reduce((a, id) => { const f = FOODS.find(x => x.id == id); return a + f.price * cart[id]; }, 0);
-      deliveryOrders.unshift({ id: orderId, address: addr, items: itemsList, total: sub + 30, status: 'new' });
-      showScreen('screen-success');
+      const itemsList = ids.map(id => { 
+        const f = FOODS.find(x => x.id == id); 
+        return `${f.emoji} ${f.name} ×${cart[id]}`; 
+      }).join(', ');
+      
+      const sub = ids.reduce((a, id) => { 
+        const f = FOODS.find(x => x.id == id); 
+        return a + f.price * cart[id]; 
+      }, 0);
+      const totalAmount = sub + 30;
+
+      try {
+        const response = await fetch('http://localhost:3000/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: addr,
+            items: itemsList,
+            total: totalAmount
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          // Update confirmation screen UI with server-generated order ID
+          document.getElementById('track-id').textContent = '#' + data.order.id;
+          showScreen('screen-success');
+        } else {
+          showToast(data.error || 'Failed to place order.');
+        }
+      } catch (error) {
+        console.error('Order placement error:', error);
+        showToast('Connection error. Server might be down.');
+      }
     }
 
     function resetOrder() {
@@ -1338,45 +1372,73 @@
       renderFoods();
     }
 
-    function renderDeliveryOrders() {
+    async function renderDeliveryOrders() {
       const list = document.getElementById('del-orders-list');
-      if (deliveryOrders.length === 0) {
-        list.innerHTML = `<div class="no-orders"><div class="big-emoji">🛵</div><p>No orders yet.<br>Place an order from the customer view!</p></div>`; return;
+      
+      try {
+        // Fetch live orders from the server
+        const response = await fetch('http://localhost:3000/api/orders');
+        const data = await response.json();
+        
+        if (!response.ok || !data.success || data.orders.length === 0) {
+          list.innerHTML = `<div class="no-orders"><div class="big-emoji">🛵</div><p>No orders yet.<br>Place an order from the customer view!</p></div>`; 
+          return;
+        }
+
+        // Filter and update local delivered count calculations dynamically for the UI
+        deliveredCount = data.orders.filter(o => o.status === 'done').length;
+
+        list.innerHTML = data.orders.map(o => {
+          const badges = { new: 'badge-new', pickup: 'badge-pickup', enroute: 'badge-enroute', done: 'badge-done' };
+          const labels = { new: 'New Order', pickup: 'At Restaurant', enroute: 'En Route', done: 'Delivered' };
+          const nextBtnMap = { new: 'Accept & Pickup', pickup: 'Picked Up', enroute: 'Mark Delivered' };
+          
+          return `<div class="del-order">
+        <div class="del-order-top">
+          <span class="del-order-id">#${o.id}</span>
+          <span class="del-status-badge ${badges[o.status]}">${labels[o.status]}</span>
+        </div>
+        <div class="del-addr">📍 ${o.address}<br>📱 Tel: ${o.userMobile}<br>💰 ₹${o.total} COD</div>
+        <div class="del-items-list" style="margin-top:6px">${o.items}</div>
+        <div class="del-actions">
+          ${o.status !== 'done' ? `<button class="del-btn del-btn-nav" onclick="openNavModal('${o.id}')">🗺️ Navigate</button>` : ''}
+          ${o.status !== 'done'
+              ? `<button class="del-btn del-btn-status" onclick="advanceStatus('${o.id}', '${o.status}')">${nextBtnMap[o.status]}</button>`
+              : `<button class="del-btn del-btn-done" disabled style="opacity:.5;cursor:default">✓ Delivered</button>`
+            }
+        </div>
+      </div>`;
+        }).join('');
+        
+        document.getElementById('stat-del').textContent = deliveredCount;
+        document.getElementById('stat-earn').textContent = '₹' + (deliveredCount * 35);
+
+      } catch (error) {
+        list.innerHTML = `<p style="text-align:center;color:var(--red);">Error loading dashboard orders.</p>`;
       }
-      list.innerHTML = deliveryOrders.map(o => {
-        const badges = { new: 'badge-new', pickup: 'badge-pickup', enroute: 'badge-enroute', done: 'badge-done' };
-        const labels = { new: 'New Order', pickup: 'At Restaurant', enroute: 'En Route', done: 'Delivered' };
-        const nextBtnMap = { new: 'Accept & Pickup', pickup: 'Picked Up', enroute: 'Mark Delivered' };
-        const nextStatusMap = { new: 'pickup', pickup: 'enroute', enroute: 'done' };
-        return `<div class="del-order">
-      <div class="del-order-top">
-        <span class="del-order-id">#${o.id}</span>
-        <span class="del-status-badge ${badges[o.status]}">${labels[o.status]}</span>
-      </div>
-      <div class="del-addr">📍 ${o.address}<br>💰 ₹${o.total} COD</div>
-      <div class="del-items-list" style="margin-top:6px">${o.items}</div>
-      <div class="del-actions">
-        ${o.status !== 'done' ? `<button class="del-btn del-btn-nav" onclick="openNavModal('${o.id}')">🗺️ Navigate</button>` : ''}
-        ${o.status !== 'done'
-            ? `<button class="del-btn del-btn-status" onclick="advanceStatus('${o.id}')">${nextBtnMap[o.status]}</button>`
-            : `<button class="del-btn del-btn-done" disabled style="opacity:.5;cursor:default">✓ Delivered</button>`
-          }
-      </div>
-    </div>`;
-      }).join('');
-      document.getElementById('stat-del').textContent = deliveredCount;
-      document.getElementById('stat-earn').textContent = '₹' + (deliveredCount * 35);
     }
 
-    function advanceStatus(id) {
-      const o = deliveryOrders.find(x => x.id === id);
-      if (!o) return;
-      const next = { new: 'pickup', pickup: 'enroute', enroute: 'done' };
-      o.status = next[o.status];
-      if (o.status === 'done') { deliveredCount++; earnings += 35; }
-      renderDeliveryOrders();
-      const msgs = { pickup: 'Heading to restaurant!', enroute: 'Order picked up!', done: 'Delivered successfully! 🎉' };
-      showToast(msgs[o.status] || 'Status updated!');
+    async function advanceStatus(id, currentStatus) {
+      const nextMap = { new: 'pickup', pickup: 'enroute', enroute: 'done' };
+      const nextStatus = nextMap[currentStatus];
+
+      try {
+        const response = await fetch('http://localhost:3000/api/orders/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, nextStatus })
+        });
+
+        if (response.ok) {
+          renderDeliveryOrders(); // Refresh layout updates
+          const msgs = { pickup: 'Heading to restaurant!', enroute: 'Order picked up!', done: 'Delivered successfully! 🎉' };
+          showToast(msgs[nextStatus] || 'Status updated!');
+        } else {
+          showToast('Failed to change order status.');
+        }
+      } catch (error) {
+        showToast('Network error updating status.');
+      }
     }
 
     function openNavModal(id) { navOrderId = id; document.getElementById('nav-modal').style.display = 'flex'; }
