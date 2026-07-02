@@ -118,6 +118,20 @@
     .auth-links a { color: var(--orange); text-decoration: none; font-weight: 500; }
     .auth-links a:hover { text-decoration: underline; }
     .otp-center { text-align: center; }
+    .delivery-link {
+      display: block;
+      margin-top: 0.85rem;
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--cream);
+      text-align: center;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .delivery-link:hover { border-color: var(--orange); color: var(--orange); }
   </style>
 </head>
 <body>
@@ -154,6 +168,7 @@
         <div class="message" id="message"></div>
         <div class="loader" id="loader"></div>
         <button type="submit" class="btn-primary" id="submitBtn">Login</button>
+        <a class="delivery-link" href="delivery-login.html">Delivery Agent Login</a>
       </form>
     </div>
 

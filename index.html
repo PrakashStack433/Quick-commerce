@@ -93,7 +93,8 @@
     .nav-actions {
       display: flex;
       gap: 10px;
-      align-items: center
+      align-items: center;
+      padding: 90px;
     }
 
     .btn-nav {
@@ -213,7 +214,7 @@
       width: 100%;
       background: white;
       border: 1px solid var(--border);
-      color: var(--cream);
+      color: black;
       padding: 14px 18px 14px 45px;
       border-radius: 10px;
       font-size: 16px;
@@ -1010,10 +1011,8 @@
     <nav class="nav">
       <div class="nav-logo">Quick<span>Bite</span></div>
       <div class="nav-actions">
-        <button class="btn-nav" onclick="showScreen('screen-delivery')">🛵 Delivery Mode</button>
-        <button class="cart-btn" onclick="showScreen('screen-cart')">
-          🛒 Cart <span class="cart-count" id="cart-count">0</span>
-        </button>
+        <button class="btn-nav" id="delivery-mode-btn" onclick="window.location.href='delivery-dashboard.html'" style="display:none">🛵 Delivery Dashboard</button>
+        <button class="cart-btn" onclick="showScreen('screen-cart')">🛒 Cart <span class="cart-count" id="cart-count">0</span></button>
       </div>
     </nav>
 
@@ -1463,6 +1462,12 @@
       const t = document.getElementById('toast');
       t.textContent = msg; t.classList.add('show');
       setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    const currentRole = localStorage.getItem('qb_user_role');
+    const deliveryBtn = document.getElementById('delivery-mode-btn');
+    if (deliveryBtn) {
+      deliveryBtn.style.display = currentRole === 'delivery' ? 'inline-flex' : 'none';
     }
 
     renderFoods();

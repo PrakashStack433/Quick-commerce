@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickBite — Delivery Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0F0D0B; --surface: #1A1714; --card: #231F1B; --border: #2E2A26;
+      --orange: #1dc917; --orange-soft: #FF8F5A; --cream: #F5EDD8; --cream-muted: #B8A99A;
+      --green: #22C55E; --red: #EF4444; --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
+    }
+    body {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
+      background: var(--bg); color: var(--cream); font-family: var(--font-body);
+    }
+    .card { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem; }
+    .logo { text-align: center; margin-bottom: 1.5rem; }
+    .logo-text { font-family: var(--font-head); font-size: 2rem; font-weight: 800; color: var(--orange); }
+    .logo-text span { color: var(--cream); }
+    .logo-sub { font-size: 0.8rem; color: var(--cream-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; margin-bottom: 0.5rem; font-size: 12px; color: white; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    input { width: 100%; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--cream); font-size: 14px; }
+    input:focus { outline: none; border-color: var(--orange); }
+    .btn { width: 100%; margin-top: 0.5rem; padding: 14px; border: none; border-radius: 12px; font-family: var(--font-head); font-size: 1rem; font-weight: 700; cursor: pointer; background: var(--orange); color: white; }
+    .btn:hover { background: var(--orange-soft); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .message { margin-top: 1rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem; display: none; }
+    .message.error { background: rgba(239, 68, 68, 0.1); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .message.success { background: rgba(34, 197, 94, 0.1); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.3); }
+    .message.show { display: block; }
+    .links { margin-top: 1rem; text-align: center; color: var(--cream-muted); font-size: 0.9rem; }
+    .links a { color: var(--orange); text-decoration: none; font-weight: 600; }
+    .links a:hover { text-decoration: underline; }
+    .subtle { margin-top: 0.75rem; color: var(--cream-muted); font-size: 0.85rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-text">Quick<span>Bite</span></div>
+      <div class="logo-sub">Delivery Agent Portal</div>
+    </div>
+    <form id="deliveryLoginForm">
+      <div class="form-group">
+        <label for="mobile">Mobile Number</label>
+        <input id="mobile" type="tel" maxlength="10" pattern="[0-9]{10}" placeholder="98XXXXXXXX" required />
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input id="password" type="password" placeholder="Enter password" required />
+      </div>
+      <div class="message" id="message"></div>
+      <button class="btn" id="submitBtn" type="submit">Login as Delivery Agent</button>
+    </form>
+    <div class="subtle">Only approved delivery agents can access this portal.</div>
+    <div class="links">
+      <p><a href="delivery-register.html">Register as delivery agent</a></p>
+      <p style="margin-top:0.5rem"><a href="login-new.html">Back to customer login</a></p>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('deliveryLoginForm');
+    const message = document.getElementById('message');
+    const submitBtn = document.getElementById('submitBtn');
+
+    function showMessage(text, type) {
+      message.textContent = text;
+      message.className = `message ${type} show`;
+      setTimeout(() => message.classList.remove('show'), 4000);
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const mobile = document.getElementById('mobile').value.trim();
+      const password = document.getElementById('password').value;
+
+      submitBtn.disabled = true;
+      try {
+        const res = await fetch('http://localhost:3000/api/delivery/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ mobile, password })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          localStorage.setItem('qb_user_role', data.user.role);
+          localStorage.setItem('qb_user_mobile', data.user.mobile);
+          localStorage.setItem('qb_user_id', data.user.id);
+          showMessage('Login successful', 'success');
+          setTimeout(() => window.location.href = 'delivery-dashboard.html', 1000);
+        } else {
+          showMessage(data.error || 'Login failed', 'error');
+        }
+      } catch (error) {
+        showMessage('Connection error', 'error');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

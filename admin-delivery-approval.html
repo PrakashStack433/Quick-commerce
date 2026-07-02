@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickBite — Delivery Approval</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0F0D0B; --surface: #1A1714; --card: #231F1B; --border: #2E2A26;
+      --orange: #1dc917; --orange-soft: #FF8F5A; --cream: #F5EDD8; --cream-muted: #B8A99A;
+      --green: #22C55E; --red: #EF4444; --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
+    }
+    body { background: var(--bg); color: var(--cream); font-family: var(--font-body); min-height: 100vh; padding: 1rem; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem; }
+    .title { font-family: var(--font-head); font-size: 1.6rem; font-weight: 800; color: var(--orange); margin-bottom: 0.3rem; }
+    .muted { color: var(--cream-muted); font-size: 0.95rem; margin-bottom: 1rem; }
+    .item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 0.95rem; margin-bottom: 0.75rem; }
+    .actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+    button { border: none; border-radius: 10px; padding: 0.65rem 0.9rem; color: white; font-weight: 700; cursor: pointer; }
+    .approve { background: var(--green); }
+    .reject { background: var(--red); }
+    .empty { color: var(--cream-muted); padding: 0.75rem 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="title">Delivery Agent Approvals</div>
+      <div class="muted">Approve or reject new delivery-agent registrations.</div>
+      <div id="list"></div>
+    </div>
+  </div>
+
+  <script>
+    async function loadPending() {
+      const res = await fetch('http://localhost:3000/api/admin/pending-delivery-agents');
+      const data = await res.json();
+      const list = document.getElementById('list');
+      if (!data.success || !data.pending.length) {
+        list.innerHTML = '<div class="empty">No pending delivery agents.</div>';
+        return;
+      }
+      list.innerHTML = data.pending.map(agent => `
+        <div class="item">
+          <strong>${agent.name || 'Delivery Agent'}</strong>
+          <div class="muted">Mobile: ${agent.mobile}</div>
+          <div class="muted">Requested: ${new Date(agent.createdAt).toLocaleString()}</div>
+          <div class="actions">
+            <button class="approve" onclick="approve('${agent.mobile}')">Approve</button>
+            <button class="reject" onclick="reject('${agent.mobile}')">Reject</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function approve(mobile) {
+      await fetch('http://localhost:3000/api/admin/approve-delivery-agent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mobile })
+      });
+      loadPending();
+    }
+
+    async function reject(mobile) {
+      await fetch('http://localhost:3000/api/admin/reject-delivery-agent', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mobile })
+      });
+      loadPending();
+    }
+
+    loadPending();
+  </script>
+</body>
+</html>

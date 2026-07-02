@@ -35,6 +35,7 @@ app.use(session({
 // ── IN-MEMORY USER DATABASE ────────────────────────────────
 // ⚠️ For production, use a real database (MongoDB, PostgreSQL, etc)
 const users = new Map();
+const pendingDeliveryAgents = new Map();
 
 // ── IN-MEMORY ORDERS DATABASE ──────────────────────────────
 const orders = [];
@@ -45,6 +46,7 @@ users.set('9876543210', {
     mobile: '9876543210',
     hash: '$2b$10$WsRCEaKDcCpln8fdT.1p..ns8cOVH39lFOnDnbsDMVArf9Cne48A2', // hashed 'Test@123'
     role: 'customer',
+    approved: true,
     createdAt: new Date()
 });
 
@@ -231,6 +233,149 @@ app.post('/api/login', async (req, res) => {
 // 2B. VERIFY LOGIN OTP (kept for compatibility but no longer used)
 app.post('/api/verify-login-otp', (req, res) => {
     res.status(410).json({ error: 'Login no longer uses OTP verification' });
+});
+
+// 2C. DELIVERY AGENT REGISTRATION
+app.post('/api/delivery/register', async (req, res) => {
+    try {
+        const { mobile, password, confirmPassword, name } = req.body;
+
+        if (!mobile || !password || !confirmPassword || !name) {
+            return res.status(400).json({ error: 'Name, mobile number, and password are required' });
+        }
+
+        if (!isValidMobileNumber(mobile)) {
+            return res.status(400).json({ error: 'Invalid mobile number' });
+        }
+
+        if (password !== confirmPassword) {
+            return res.status(400).json({ error: 'Passwords do not match' });
+        }
+
+        if (!isValidPassword(password)) {
+            return res.status(400).json({ error: 'Password must be 8+ chars with uppercase, lowercase, number, and special char' });
+        }
+
+        if (users.has(mobile) || pendingDeliveryAgents.has(mobile)) {
+            return res.status(400).json({ error: 'Mobile number already registered' });
+        }
+
+        const hash = await bcrypt.hash(password, 10);
+        pendingDeliveryAgents.set(mobile, {
+            id: Date.now(),
+            mobile,
+            name,
+            hash,
+            role: 'delivery',
+            approved: false,
+            createdAt: new Date()
+        });
+
+        res.json({
+            success: true,
+            message: 'Delivery agent registration submitted. Waiting for admin approval.'
+        });
+    } catch (err) {
+        console.error('Delivery registration error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// 2D. DELIVERY AGENT LOGIN
+app.post('/api/delivery/login', async (req, res) => {
+    try {
+        const { mobile, password } = req.body;
+
+        if (!mobile || !password) {
+            return res.status(400).json({ error: 'Mobile number and password required' });
+        }
+
+        const pending = pendingDeliveryAgents.get(mobile);
+        if (pending) {
+            return res.status(403).json({ error: 'Your delivery account is still pending admin approval.' });
+        }
+
+        const user = users.get(mobile);
+        if (!user || user.role !== 'delivery') {
+            return res.status(401).json({ error: 'Invalid delivery agent credentials' });
+        }
+
+        if (!user.approved) {
+            return res.status(403).json({ error: 'Your delivery account is still pending admin approval.' });
+        }
+
+        const match = await bcrypt.compare(password, user.hash);
+        if (!match) {
+            return res.status(401).json({ error: 'Invalid delivery agent credentials' });
+        }
+
+        req.session.userId = user.id;
+        req.session.mobile = user.mobile;
+        req.session.role = user.role;
+        req.session.authenticated = true;
+
+        res.json({
+            success: true,
+            message: 'Delivery login successful',
+            user: {
+                id: user.id,
+                mobile: user.mobile,
+                role: user.role
+            }
+        });
+    } catch (err) {
+        console.error('Delivery login error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// 2E. ADMIN DELIVERY APPROVAL ENDPOINTS
+app.get('/api/admin/pending-delivery-agents', (req, res) => {
+    const pending = Array.from(pendingDeliveryAgents.values()).map(agent => ({
+        id: agent.id,
+        mobile: agent.mobile,
+        name: agent.name,
+        createdAt: agent.createdAt
+    }));
+    res.json({ success: true, pending });
+});
+
+app.post('/api/admin/approve-delivery-agent', async (req, res) => {
+    try {
+        const { mobile } = req.body;
+        const agent = pendingDeliveryAgents.get(mobile);
+
+        if (!agent) {
+            return res.status(404).json({ error: 'Pending delivery agent not found' });
+        }
+
+        users.set(mobile, {
+            id: agent.id,
+            mobile,
+            name: agent.name,
+            hash: agent.hash,
+            role: 'delivery',
+            approved: true,
+            createdAt: agent.createdAt
+        });
+
+        pendingDeliveryAgents.delete(mobile);
+        res.json({ success: true, message: 'Delivery agent approved' });
+    } catch (err) {
+        console.error('Approve delivery agent error:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/admin/reject-delivery-agent', (req, res) => {
+    const { mobile } = req.body;
+    const exists = pendingDeliveryAgents.has(mobile);
+    if (!exists) {
+        return res.status(404).json({ error: 'Pending delivery agent not found' });
+    }
+
+    pendingDeliveryAgents.delete(mobile);
+    res.json({ success: true, message: 'Delivery agent rejected' });
 });
 
 // 3. CHECK SESSION (Verify if user is logged in)
