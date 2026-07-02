@@ -180,7 +180,7 @@ app.post('/api/verify-registration-otp', async (req, res) => {
     }
 });
 
-// 2. LOGIN ENDPOINT (Step 1: Verify password and send OTP)
+// 2. LOGIN ENDPOINT
 app.post('/api/login', async (req, res) => {
     try {
         const { mobile, password } = req.body;
@@ -201,32 +201,25 @@ app.post('/api/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid mobile number or password' });
         }
 
-        // Password verified - Generate OTP for 2FA
-        const otp = Math.floor(100000 + Math.random() * 900000);
-        
-        req.session.loginPending = {
-            userId: user.id,
-            mobile: user.mobile,
-            role: user.role
-        };
-        req.session.loginOtp = otp;
-        req.session.loginOtpExpiry = Date.now() + 10 * 60 * 1000;
+        // Password verified - create authenticated session directly
+        req.session.userId = user.id;
+        req.session.mobile = user.mobile;
+        req.session.role = user.role;
+        req.session.authenticated = true;
 
-        // Log OTP for testing
-        console.log(`\n${'='.repeat(50)}`);
-        console.log(`📱 LOGIN OTP for ${mobile}`);
-        console.log(`🔐 OTP: ${otp}`);
-        console.log(`⏱️  Valid for: 10 minutes`);
-        console.log(`${'='.repeat(50)}\n`);
+        // Clear any stale login OTP state
+        req.session.loginPending = null;
+        req.session.loginOtp = null;
+        req.session.loginOtpExpiry = null;
 
-        // In production: send via SMS (Twilio, AWS SNS, etc)
-        // Example: await sendOTPViaSMS(mobile, otp);
-
-        res.json({ 
-            success: true, 
-            message: 'OTP sent to your mobile number (check server console for testing)',
-            step: 'otp_verification',
-            otp: DEVELOPMENT_MODE ? otp : undefined
+        res.json({
+            success: true,
+            message: 'Login successful',
+            user: {
+                id: user.id,
+                mobile: user.mobile,
+                role: user.role
+            }
         });
 
     } catch (err) {
@@ -235,56 +228,9 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// 2B. VERIFY LOGIN OTP (Step 2: Verify OTP and create session)
+// 2B. VERIFY LOGIN OTP (kept for compatibility but no longer used)
 app.post('/api/verify-login-otp', (req, res) => {
-    try {
-        const { otp } = req.body;
-
-        if (!req.session.loginPending) {
-            return res.status(400).json({ error: 'No pending login' });
-        }
-
-        if (!req.session.loginOtp) {
-            return res.status(400).json({ error: 'No OTP requested' });
-        }
-
-        if (Date.now() > req.session.loginOtpExpiry) {
-            req.session.loginPending = null;
-            req.session.loginOtp = null;
-            return res.status(400).json({ error: 'OTP expired. Please login again.' });
-        }
-
-        if (parseInt(otp) !== req.session.loginOtp) {
-            return res.status(401).json({ error: 'Invalid OTP' });
-        }
-
-        // OTP verified - Create authenticated session
-        const { userId, mobile, role } = req.session.loginPending;
-        
-        req.session.userId = userId;
-        req.session.mobile = mobile;
-        req.session.role = role;
-        req.session.authenticated = true;
-
-        // Clear OTP data
-        req.session.loginPending = null;
-        req.session.loginOtp = null;
-        req.session.loginOtpExpiry = null;
-
-        res.json({ 
-            success: true, 
-            message: 'Login successful',
-            user: {
-                id: userId,
-                mobile,
-                role
-            }
-        });
-
-    } catch (err) {
-        console.error('OTP verification error:', err);
-        res.status(500).json({ error: 'Server error' });
-    }
+    res.status(410).json({ error: 'Login no longer uses OTP verification' });
 });
 
 // 3. CHECK SESSION (Verify if user is logged in)

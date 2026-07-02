@@ -157,31 +157,6 @@
       </form>
     </div>
 
-    <!-- OTP Verification Card -->
-    <div class="card" id="otpCard" style="display: none;">
-      <form id="otpForm">
-        <div class="form-group otp-center" style="margin-bottom: 1.5rem;">
-          <label class="form-label" style="text-transform: none;">Verification Code</label>
-          <p style="color: var(--cream); margin-top: 0.5rem;">Sent to <strong id="displayMobile"></strong></p>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="otpInput">Enter OTP</label>
-          <input type="text" id="otpInput" class="form-input" placeholder="000000" maxlength="6" pattern="[0-9]{6}" required>
-          <small style="text-align: center; display: block; margin-top: 0.25rem;">Valid for 10 minutes</small>
-        </div>
-
-        <div class="otp-center" style="margin: 1rem 0; color: var(--cream-muted); font-size: 0.9rem;">
-          <span id="otpTimer"></span>
-          <button type="button" id="resendOtpBtn" style="background: none; border: none; color: var(--orange); cursor: pointer; text-decoration: underline; margin-left: 0.5rem; display: none;">Resend</button>
-        </div>
-
-        <div class="message" id="otpMessage"></div>
-        <div class="loader" id="otpLoader"></div>
-        <button type="submit" class="btn-primary" id="verifyOtpBtn">Verify & Login</button>
-      </form>
-    </div>
-
     <div class="auth-links">
       <p>Don't have an account? <a href="registration-new.html">Sign up here</a></p>
     </div>
@@ -189,24 +164,11 @@
 
   <script>
     const loginForm = document.getElementById('loginForm');
-    const otpForm = document.getElementById('otpForm');
-    const loginCard = document.getElementById('loginCard');
-    const otpCard = document.getElementById('otpCard');
     const mobileInput = document.getElementById('mobile');
     const passwordInput = document.getElementById('password');
-    const otpInput = document.getElementById('otpInput');
     const messageDiv = document.getElementById('message');
-    const otpMessageDiv = document.getElementById('otpMessage');
     const loader = document.getElementById('loader');
-    const otpLoader = document.getElementById('otpLoader');
     const submitBtn = document.getElementById('submitBtn');
-    const verifyOtpBtn = document.getElementById('verifyOtpBtn');
-    const resendOtpBtn = document.getElementById('resendOtpBtn');
-    const otpTimer = document.getElementById('otpTimer');
-    const displayMobile = document.getElementById('displayMobile');
-
-    let otpTimeLeft = 0;
-    let otpTimerInterval = null;
 
     //password reveal
     const togglePassword = document.getElementById('togglePassword');
@@ -236,37 +198,6 @@
       setTimeout(() => messageDiv.classList.remove('show'), 4000);
     }
 
-    function showOtpMessage(text, type) {
-      otpMessageDiv.textContent = text;
-      otpMessageDiv.className = `message ${type} show`;
-      setTimeout(() => otpMessageDiv.classList.remove('show'), 4000);
-    }
-
-    function startOtpTimer() {
-      otpTimeLeft = 600;
-      resendOtpBtn.style.display = 'none';
-      clearInterval(otpTimerInterval);
-      otpTimerInterval = setInterval(() => {
-        otpTimeLeft--;
-        const mins = Math.floor(otpTimeLeft / 60);
-        const secs = otpTimeLeft % 60;
-        otpTimer.textContent = `Resend OTP in ${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        if (otpTimeLeft <= 0) {
-          clearInterval(otpTimerInterval);
-          otpTimer.textContent = '';
-          resendOtpBtn.style.display = 'inline';
-        }
-      }, 1000);
-    }
-
-    function showOtpScreen(mobile) {
-      displayMobile.textContent = `${mobile.substring(0, 2)}${'*'.repeat(6)}${mobile.substring(8)}`;
-      loginCard.style.display = 'none';
-      otpCard.style.display = 'block';
-      otpInput.focus();
-      startOtpTimer();
-    }
-
     loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       const mobile = mobileInput.value.trim();
@@ -292,8 +223,12 @@
           body: JSON.stringify({ mobile, password })
         });
         const data = await response.json();
-        if (response.ok && data.step === 'otp_verification') {
-          showOtpScreen(mobile);
+        if (response.ok) {
+          showMessage('✓ Login successful!', 'success');
+          localStorage.setItem('qb_user_id', data.user.id);
+          localStorage.setItem('qb_user_mobile', data.user.mobile);
+          localStorage.setItem('qb_user_role', data.user.role);
+          setTimeout(() => window.location.href = 'index.html', 1000);
         } else {
           showMessage(data.error || 'Login failed', 'error');
         }
@@ -305,66 +240,6 @@
       }
     });
 
-    otpForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const otp = otpInput.value.trim();
-
-      if (!otp || otp.length !== 6) {
-        showOtpMessage('Enter 6-digit OTP', 'error');
-        return;
-      }
-
-      otpLoader.style.display = 'block';
-      verifyOtpBtn.disabled = true;
-
-      try {
-        const response = await fetch('http://localhost:3000/api/verify-login-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ otp })
-        });
-        const data = await response.json();
-        if (response.ok) {
-          showOtpMessage('✓ Login successful!', 'success');
-          localStorage.setItem('qb_user_id', data.user.id);
-          localStorage.setItem('qb_user_mobile', data.user.mobile);
-          localStorage.setItem('qb_user_role', data.user.role);
-          clearInterval(otpTimerInterval);
-          setTimeout(() => window.location.href = 'index.html', 1500);
-        } else {
-          showOtpMessage(data.error || 'OTP verification failed', 'error');
-        }
-      } catch (error) {
-        showOtpMessage('Connection error', 'error');
-      } finally {
-        otpLoader.style.display = 'none';
-        verifyOtpBtn.disabled = false;
-      }
-    });
-
-    resendOtpBtn.addEventListener('click', async (event) => {
-      event.preventDefault();
-      try {
-        const response = await fetch('http://localhost:3000/api/resend-otp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ type: 'login' })
-        });
-        const data = await response.json();
-        if (response.ok) {
-          showOtpMessage('✓ OTP resent', 'success');
-          startOtpTimer();
-          otpInput.value = '';
-          otpInput.focus();
-        } else {
-          showOtpMessage(data.error || 'Failed to resend OTP', 'error');
-        }
-      } catch (error) {
-        showOtpMessage('Connection error', 'error');
-      }
-    });
   </script>
 </body>
 </html>
